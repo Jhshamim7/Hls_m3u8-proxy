@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "wrangler dev --ip 0.0.0.0 --port 3000",
     "build": "echo 'No build step required for Cloudflare Workers'",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test-proxy": "node test_user_proxy.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240314.0",

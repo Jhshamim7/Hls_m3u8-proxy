@@ -32,16 +32,24 @@ export default {
 
       let targetUrlStr = request.url.substring(urlParamIndex + 5);
 
-      // Remove &type=m3u8 if present
-      const typeParamIndex = targetUrlStr.indexOf("&type=");
+      // Remove &ext= if present (new format)
+      const extParamIndex = targetUrlStr.indexOf("&ext=");
       let isM3u8Type = false;
+      if (extParamIndex !== -1) {
+        const extValue = targetUrlStr.substring(extParamIndex + 5);
+        if (extValue.startsWith(".m3u8")) isM3u8Type = true;
+        targetUrlStr = targetUrlStr.substring(0, extParamIndex);
+      }
+
+      // Remove &type=m3u8 if present (old format)
+      const typeParamIndex = targetUrlStr.indexOf("&type=");
       if (typeParamIndex !== -1) {
         const typeValue = targetUrlStr.substring(typeParamIndex + 6);
         if (typeValue.startsWith("m3u8")) isM3u8Type = true;
         targetUrlStr = targetUrlStr.substring(0, typeParamIndex);
       }
 
-      // Handle URL encoding
+      // Handle URL encoding for plain URLs
       if (targetUrlStr.toLowerCase().startsWith("http%3a") || targetUrlStr.toLowerCase().startsWith("https%3a")) {
         targetUrlStr = decodeURIComponent(targetUrlStr);
       }
@@ -49,7 +57,23 @@ export default {
       // Try to decode base64 if it doesn't start with http
       if (!targetUrlStr.startsWith("http")) {
         try {
-          targetUrlStr = atob(targetUrlStr);
+          // It might be URL-encoded base64 (e.g. %3D instead of =)
+          let decodedStr = decodeURIComponent(targetUrlStr);
+          
+          // If the player URL-encoded the &ext= parameter, it will be in decodedStr
+          const decodedExtIndex = decodedStr.indexOf("&ext=");
+          if (decodedExtIndex !== -1) {
+            if (decodedStr.substring(decodedExtIndex + 5).startsWith(".m3u8")) isM3u8Type = true;
+            decodedStr = decodedStr.substring(0, decodedExtIndex);
+          }
+          
+          const decodedTypeIndex = decodedStr.indexOf("&type=");
+          if (decodedTypeIndex !== -1) {
+            if (decodedStr.substring(decodedTypeIndex + 6).startsWith("m3u8")) isM3u8Type = true;
+            decodedStr = decodedStr.substring(0, decodedTypeIndex);
+          }
+
+          targetUrlStr = atob(decodedStr);
         } catch (e) {
           // Not base64, ignore
         }
@@ -121,9 +145,9 @@ export default {
                 const absoluteUri = uri.startsWith('http') ? uri : new URL(uri, baseUrl).toString();
                 // We base64 encode the rewritten URLs to match the frontend's expectation
                 // and to avoid issues with nested query parameters
-                const encodedUri = btoa(absoluteUri);
-                const typeParam = absoluteUri.includes(".m3u8") ? "&type=m3u8" : "";
-                const proxiedUri = `/api/proxy?url=${encodedUri}${typeParam}`;
+                const encodedUri = encodeURIComponent(btoa(absoluteUri));
+                const ext = absoluteUri.includes(".m3u8") ? "&ext=.m3u8" : (absoluteUri.includes(".ts") ? "&ext=.ts" : "");
+                const proxiedUri = `/api/proxy?url=${encodedUri}${ext}`;
                 return `URI="${proxiedUri}"`;
               });
             }
@@ -131,9 +155,9 @@ export default {
             // Handle direct URLs (segments or playlists)
             if (!trimmed.startsWith('#')) {
               const absoluteUri = trimmed.startsWith('http') ? trimmed : new URL(trimmed, baseUrl).toString();
-              const encodedUri = btoa(absoluteUri);
-              const typeParam = absoluteUri.includes(".m3u8") ? "&type=m3u8" : "";
-              return `/api/proxy?url=${encodedUri}${typeParam}`;
+              const encodedUri = encodeURIComponent(btoa(absoluteUri));
+              const ext = absoluteUri.includes(".m3u8") ? "&ext=.m3u8" : (absoluteUri.includes(".ts") ? "&ext=.ts" : "");
+              return `/api/proxy?url=${encodedUri}${ext}`;
             }
             
             return line;

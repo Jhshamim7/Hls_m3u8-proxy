@@ -1,50 +1,44 @@
-# Cloudflare Worker Proxy
+# Cloudflare HLS Proxy Worker
 
-A simple Cloudflare Worker that acts as a proxy, specifically designed to bypass basic restrictions by injecting headers like `Referer` and `User-Agent`.
+A pure, standalone Cloudflare Worker designed to proxy HLS (`.m3u8` and `.ts`) video streams. It bypasses basic restrictions by injecting headers like `Referer`, `Origin`, and `User-Agent`, and rewrites internal M3U8 URLs so that video segments are also routed through the proxy.
 
-## Deployment via GitHub
-
-1. Fork or clone this repository to your GitHub account.
-2. Go to your [Cloudflare Dashboard](https://dash.cloudflare.com/).
-3. Navigate to **Workers & Pages** -> **Overview**.
-4. Click **Create application** -> **Pages** -> **Connect to Git**.
-5. Select your repository and configure the build:
-   - **Framework preset**: None
-   - **Build command**: `npm install && npm run deploy`
-   - **Build output directory**: (leave blank)
-   - *Note: For Workers, it's often easier to deploy via GitHub Actions. See below.*
-
-### Deploying via GitHub Actions (Recommended)
-
-1. Go to your repository settings on GitHub -> **Secrets and variables** -> **Actions**.
-2. Add a new repository secret named `CLOUDFLARE_API_TOKEN` with a token generated from your Cloudflare profile (needs Edit permissions for Workers).
-3. Add a new repository secret named `CLOUDFLARE_ACCOUNT_ID` with your Cloudflare Account ID.
-4. Create a file `.github/workflows/deploy.yml` with the following content:
-
-```yaml
-name: Deploy Worker
-on:
-  push:
-    branches:
-      - main
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Deploy
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-```
+This project contains **no frontend or UI**—it is strictly a backend proxy endpoint designed to be used with custom HLS players.
 
 ## Usage
 
-Once deployed, you can use the proxy endpoint like this:
+Once deployed to Cloudflare Workers, you can use the proxy endpoint by passing the target URL (either plain text or Base64 encoded) via the `url` query parameter.
 
+**Example with Plain URL:**
 ```
-https://your-worker-subdomain.workers.dev/api/proxy?url=https://example.com/file.m3u8
+https://your-worker-subdomain.workers.dev/?url=https://example.com/video/master.m3u8
 ```
 
-The worker automatically adds CORS headers and injects `Referer: https://megacloud.com/` to bypass restrictions.
+**Example with Base64 Encoded URL:**
+```
+https://your-worker-subdomain.workers.dev/?url=aHR0cHM6Ly9leGFtcGxlLmNvbS92aWRlby9tYXN0ZXIubTN1OA==
+```
+
+### Features:
+- **Strict Player Support:** Automatically appends `&ext=.m3u8` and `&ext=.ts` to rewritten URLs so strict HLS players (like VLC, AVPlayer, ExoPlayer) accept the streams.
+- **Robust Base64 Decoding:** Handles URL-safe Base64 characters (`-` and `_`) and URL-encoded Base64 strings.
+- **Header Spoofing:** Injects `Referer: https://megacloud.com/` (and others based on the URL) to bypass hotlinking restrictions.
+- **Range Requests:** Forwards `Range` headers for efficient video seeking.
+- **CORS:** Automatically handles CORS preflight requests and injects `Access-Control-Allow-Origin: *`.
+
+## Deployment via GitHub Actions (Recommended)
+
+1. Fork or clone this repository to your GitHub account.
+2. Go to your [Cloudflare Dashboard](https://dash.cloudflare.com/) and get your **Account ID**.
+3. Generate a **Cloudflare API Token** with `Edit` permissions for Workers.
+4. Go to your GitHub repository settings -> **Secrets and variables** -> **Actions**.
+5. Add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository secrets.
+6. The included `.github/workflows/deploy.yml` will automatically deploy the worker to Cloudflare every time you push to the `main` branch.
+
+## Manual Deployment (Wrangler)
+
+If you have Node.js and Wrangler installed locally:
+
+```bash
+npm install
+npx wrangler deploy
+```

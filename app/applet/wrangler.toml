@@ -1,0 +1,8 @@
+name = "cloudflare-proxy-worker"
+main = "src/index.ts"
+compatibility_date = "2024-03-15"
+
+# You can configure your custom domains or routes here if needed
+# routes = [
+#   { pattern = "proxy.yourdomain.com/*", custom_domain = true }
+# ]

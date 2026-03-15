@@ -1,0 +1,5 @@
+{
+  "name": "HLS Proxy Player",
+  "description": "A Node.js proxy for HLS (m3u8) streams to bypass hotlinking restrictions and Cloudflare basic protection.",
+  "requestFramePermissions": []
+}
